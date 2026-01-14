@@ -280,6 +280,9 @@ Content-Type: application/json
 - Single page:
   - No additional scrolling / scroll bar, fit as much UI/UX on a single page as possible
   - Can reload elements through buttons tabs if required for more space (I didn't use any for this project)
+ 
+- Float Precision:
+  - I rounded to 3 decimal places because that was the lowest precision given for historical prices. To match this, calculations were also rounded to 3 decimal places.	
 
 <h2>Technology Choices</h2>
 <h3>Backend: Python</h3>
