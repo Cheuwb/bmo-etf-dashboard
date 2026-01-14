@@ -31,7 +31,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # Start the backend server
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 ```
 <p>Backend running at: http://127.0.0.1:8000</p>
 
@@ -59,6 +59,13 @@ npm run dev
 ```bash
 # If scripts are disabled:
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+<h3>Running Functional Unit Tests</h3>
+CD into backkend directory of the project and run the command:
+
+```bash
+pytest
 ```
 
 <h2>
