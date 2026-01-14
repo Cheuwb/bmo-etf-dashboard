@@ -255,6 +255,12 @@ Content-Type: application/json
   - Vertical bar chart sorted by biggest holding weight
 
 - CSV files and multiupload
+	- It's assumed that there needs to be at least two files uploaded at the same time for the ETF Price Monitor to display data
+      - This is because by having two paths of upload, it allows the user to mix and match different ETF weights on the same price data
+        -  For example, you may have two ETFs with the same basket of constituents, however, the weight allocation within the ETF is different per constituent.
+        -  This allows the user to compare performance of different weightings on the same historical price data, to compare performances different weight allocations.
+
+- Future CSV upload featuers:
   - The user only requires ETF weight and ETF prices to generate their data, currently the web app can only handle these two files at a time, the user has no specified requirement to upload multiple ETF weighting to compare against the price
   - Although this can be an additional feature update to compare the performance of both ETFs
   - This assumption is made because currently, the data table which shows the composition of the ETF can only handle one ETF, if there are more than one ETF uploaded, the UI/UX will need to be updated to allow this kind of comparison feature.
