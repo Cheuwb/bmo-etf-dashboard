@@ -48,7 +48,7 @@ npm install
 # Start the development server
 npm run dev
 ```
-<p>Frontend running at: http://localhost:5173</p>
+Frontend running at: http://localhost:5173/
 
 
 <h2>Troubleshooting 🔧 </h2>
