@@ -78,3 +78,37 @@ def test_upload_wrong_file_type():
     
     assert response.status_code == 400
     assert f"File 'test.txt' is not a CSV. Both files must be .csv format." in response.json()["detail"]
+
+
+def test_performance_calculation_endpoint():
+    """
+    Testing correct formatting for recharts, passing in proper required formatting
+    """
+    weight_content = b"name,weight\nA,0.097\nB,0.1"
+    prices_header = b"DATE,A,B\n"
+    prices_row = b"2026-01-01,45.00,52.10"
+    prices_content = prices_header + prices_row
+    files = {
+            "weights_file": ("test_weight.csv", io.BytesIO(weight_content), "text/csv"),
+            "prices_file": ("test_prices.csv", io.BytesIO(prices_content), "text/csv")
+        }
+    client.post("/api/upload-process", files=files)
+    response = client.get("/api/performance")
+    assert response.status_code == 200
+    value_data = response.json()
+
+    response = client.get("/api/composition")
+    data = response.json()
+    assert isinstance(value_data, list)
+    if len(value_data) and len(data)> 0:
+        first_item = value_data[0]
+        assert "date" in first_item
+        assert "value" in first_item
+        assert isinstance(first_item["value"], (int, float))
+        data_item1 = data[0]
+        data_item2 = data[1]
+        contribution1 = data_item1["weight"] * data_item1["latest_price"]
+        contribution2 = data_item2["weight"] * data_item2["latest_price"]
+        total_expected = round(contribution1 + contribution2, 3)
+        assert first_item["value"] == total_expected
+    
