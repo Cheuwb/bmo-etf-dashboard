@@ -1,7 +1,7 @@
 import io
 import os
 import shutil
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, File, UploadFile, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 
@@ -78,6 +78,14 @@ async def upload_and_process(
     Returns:
         Void - stores the uploaded files in the data directory path
     """
+    #Light sanitation against bad files
+    for file in [weights_file, prices_file]:
+            if not file.filename.lower().endswith(".csv"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File '{file.filename}' is not a CSV. Both files must be .csv format."
+                )
+
     for file, target in [(weights_file, "weights.csv"), (prices_file, "prices.csv")]:
         file_location = os.path.join(UPLOAD_DIR, target)
         with open(file_location, "wb") as buffer:
