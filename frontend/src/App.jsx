@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import CompositionTable from './components/CompositionTable';
 import TopHoldingsChart from './components/TopHoldingsChart';
@@ -12,8 +12,27 @@ function App() {
   const [timeRange, setTimeRange] = useState("MAX");
   const [message, setMessage] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: 'weight', direction: 'desc' });
-  const [topHoldings, setTopHoldings] = useState([]);
   const [priceChanges, setPriceChanges] = useState([]);
+  const [topHoldings, setTopHoldings] = useState([]);
+  // dynamic N holdings bar chart
+  const [topN, setTopN] = useState(5); // Default project requirement
+  // Feature to change static top 5 holdings to N holdings based on slider
+  const fetchTopHoldings = async (n) => {
+    try {
+        const res = await axios.get("http://127.0.0.1:8000/api/top-holdings", {
+            params: {n: n}
+        });
+        setTopHoldings(res.data);
+    } catch (error) {
+        console.error("Error fetching top holdings:", error);
+    }
+  };
+  // Slider to trigger re-render on react, fetching new data via fetchTopHoldings end point method
+  useEffect(() => {
+    if (compData.length > 0) {
+        fetchTopHoldings(topN);
+    }
+  }, [topN, compData.length]);
 
   // sorting logic for data table (asecnding and descending)
   const requestSort = (key) => {
@@ -53,9 +72,10 @@ function App() {
       const compRes = await axios.get("http://127.0.0.1:8000/api/composition");
       setCompData(compRes.data);
       const perfRes = await axios.get("http://127.0.0.1:8000/api/performance");
-      const holdingsRes = await axios.get("http://127.0.0.1:8000/api/top-holdings");
-      setTopHoldings(holdingsRes.data);
       setPerfData(perfRes.data);
+      // Top Holdings is now handled with useEffect guarded by the loading of composition data from axios -> backend
+      // Remove the end-point call here beacuse of race condition against useEffect;
+      // Using a safety guard compData > 0 to control population of topHoldins bar chart.
       const changesRes = await axios.get("http://127.0.0.1:8000/api/holding-price-change");
       setPriceChanges(changesRes.data);
       setMessage("Update Complete!");
@@ -64,7 +84,6 @@ function App() {
       console.error("Upload error:", error);
     }
   };
-
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100vw', backgroundColor: '#0c0c0c', color: 'white', overflow: 'hidden' }}>
@@ -184,7 +203,7 @@ function App() {
         )}
       </aside>
 
-      {/* Dashboard content for timeseries plot and top 5 holdings chart*/}
+      {/* Dashboard content for timeseries plot and top N holdings chart*/}
       <main style={{ flex: 1, padding: '30px', overflow: 'hidden', backgroundColor: '#080808', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
         {/* Time series plot */}
@@ -194,7 +213,24 @@ function App() {
           setTimeRange={setTimeRange}
         />
 
-        {/* Top 5 Holdings, Vertical Bar  Chart */}
+        {/* Top N Holdings, Vertical Bar  Chart */}
+        <div style={{
+            display: 'flex',
+            alignItems: 'center', //Added: Aligns the topN text with the slider
+            gap: '15px', 
+            color: 'white' }}>
+        <label style={{ marginRight: '10px', fontSize: '14px' }}>
+            Show Top: <strong>{topN}</strong>
+        </label>
+        <input 
+            type="range" 
+            min="1" 
+            max={Math.min(compData.length, 20)} //Limiting to top 20 etfs as it may get too crowded, ETF2 only has 20 anyways, used as standard
+            value={topN}
+            onChange={(e) => setTopN(parseInt(e.target.value))}
+            style={{ cursor: 'pointer', accentColor: '#3b82f6' }}
+        />
+        </div>
         <TopHoldingsChart data={topHoldings} />
       </main>
     </div>

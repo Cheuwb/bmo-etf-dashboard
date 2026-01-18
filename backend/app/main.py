@@ -169,7 +169,7 @@ def get_holding_price_change():
     return data
 
 @app.get("/api/top-holdings")
-def get_top_holdings():
+def get_top_holdings(n: int=5):
     """
     Endpoint to only return the top-5 holdings by largest weight*price.
 
@@ -181,18 +181,24 @@ def get_top_holdings():
         ]
     """
     prices, weights = get_processed_data()
-    if prices is None: return []
+    if prices is None or weights is None or prices.empty or weights.empty: return []
     
-    latest_prices_row = prices.iloc[-1]
-    data = weights.to_dict(orient='records')
-    
-    for item in data:
-        ticker = item['name']
-        price = latest_prices_row.get(ticker, 0)
-        item['holding_value'] = round(item['weight'] * price, 3)
-    
-    sorted_data = sorted(data, key=lambda x: x.get('holding_value', 0), reverse=True)
-    return sorted_data[:5]
+    try:
+        latest_prices_row = prices.iloc[-1]
+        data = weights.to_dict(orient='records')
+        
+        for item in data:
+            ticker = item['name']
+            price = latest_prices_row.get(ticker, 0)
+            item['holding_value'] = round(item['weight'] * price, 3)
+        
+        sorted_data = sorted(data, key=lambda x: x.get('holding_value', 0), reverse=True)
+        return sorted_data[:n]
+
+    except Exception as e:
+        #TODO logging instead of print, need to add a logger with various log levels
+        print(f"Error calculating top holdings: {e}")
+        return []
 
 if __name__ == "__main__":
     import uvicorn

@@ -15,13 +15,14 @@ const cellStyle = {
   fontSize: '14px' 
 };
 
+
 const CompositionTable = ({ data, onSort, priceChanges, maxWeight }) => {
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '0 30px 30px 30px', minHeight: 0 }}>
       <div style={{ border: '1px solid #333', borderRadius: '10px', backgroundColor: '#111', overflow: 'hidden' }}>
         
         <div style={{ padding: '15px', borderBottom: '1px solid #222', backgroundColor: '#111' }}>
-          <h3 style={{ margin: 0, fontSize: '16px' }}>ETF Composition</h3>
+          <h3 style={{ margin: 0, fontSize: '16px' }}>ETF Composition of {data.length} holdings</h3>
         </div>
 
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>

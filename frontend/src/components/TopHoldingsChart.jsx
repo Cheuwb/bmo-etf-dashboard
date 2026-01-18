@@ -65,7 +65,7 @@ const TopHoldingsChart = ({ data }) => {
                     <Cell 
                       key={`cell-${index}`} 
                       fill={'#3b82f6'} 
-                      fillOpacity={1 - index * 0.15} 
+                    //   fillOpacity={1 - index * 0.15} 
                     />
                   ))}
                   <LabelList 
