@@ -135,7 +135,7 @@ def get_composition():
     return composition
 
 @app.get("/api/holding-price-change")
-def get_holding_price_change():
+def get_holding_price_change(date: str = None):
     """
     Calculates the price differece between the current latest price and the previous date's price
 
@@ -147,26 +147,36 @@ def get_holding_price_change():
     prices, weights = get_processed_data()
     if prices is None or weights is None: return []
 
-    # Get the two most recent rows of prices
-    latest_row = prices.iloc[-1]
-    prev_row = prices.iloc[-2]
-
-    # Convert weights to a list of dicts (just like top-holdings)
-    data = weights.to_dict(orient='records')
-
-    for item in data:
-        ticker = item['name']
+    prices.index = prices['DATE'].dt.strftime('%Y-%m-%d')
+    try:
+        if date is None or date not in prices.index:
+            current_idx = len(prices) - 1
+        else:
+            current_idx = prices.index.get_loc(date)
         
-        # Get prices for this specific ticker from the price rows
-        current = latest_row.get(ticker, 0)
-        previous = prev_row.get(ticker, 0)
-        
-        # Add your boolean logic directly to the dictionary
-        item['increased'] = bool(current >= previous)
-        item['change_amount'] = round(current - previous, 3)
+        # Corner case: first entry, compare to itself (0)
+        if current_idx <= 0:
+            prev_idx = current_idx
+        else:
+            prev_idx = current_idx - 1
 
-    # Return the whole list (FastAPI turns this List of Dicts into JSON)
-    return data
+        latest_row = prices.iloc[current_idx]
+        prev_row = prices.iloc[prev_idx]
+
+        data = weights.to_dict(orient='records')
+        for item in data:
+            ticker = item['name']
+            current = latest_row.get(ticker, 0)
+            previous = prev_row.get(ticker, 0)
+            
+            item['increased'] = bool(current >= previous)
+            item['change_amount'] = round(current - previous, 3)
+            item['historical_price'] = round(current, 3)
+
+        return data
+    except Exception as e:
+        print(f"Error in price change: {e}")
+        return []
 
 @app.get("/api/top-holdings")
 def get_top_holdings(n: int=5):
@@ -199,6 +209,13 @@ def get_top_holdings(n: int=5):
         #TODO logging instead of print, need to add a logger with various log levels
         print(f"Error calculating top holdings: {e}")
         return []
+    
+@app.get("/api/full-price-history")
+def get_full_history():
+    prices_df, _ = get_processed_data()
+    if prices_df is None: return []
+    prices_df['date'] = prices_df['DATE'].dt.strftime('%Y-%m-%d')
+    return prices_df.drop(columns=['DATE']).to_dict(orient='records')
 
 if __name__ == "__main__":
     import uvicorn

@@ -3,7 +3,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 
-const PerformanceLineChart = ({ perfData, timeRange, setTimeRange }) => {
+const PerformanceLineChart = ({ perfData, timeRange, setTimeRange, onMouseMove, onMouseLeave }) => {
   
    // time series filtering -> time-periods (button zooms)
   const filteredData = useMemo(() => {
@@ -87,7 +87,11 @@ const PerformanceLineChart = ({ perfData, timeRange, setTimeRange }) => {
       <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
         {perfData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={filteredData}>
+            <LineChart 
+            data={filteredData}
+            onMouseMove={onMouseMove}
+            onMouseLeave={onMouseLeave}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
               <XAxis 
                 dataKey="date" 
