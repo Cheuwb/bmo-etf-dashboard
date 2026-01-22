@@ -74,12 +74,15 @@ function App() {
   const activePrices = getActivePrices();
 
   useEffect(() => {
-    if (hoverData?.date) {
-      axios.get("http://127.0.0.1:8000/api/holding-price-change", {
-          params: { date: hoverData.date },
-        })
-        .then((res) => setPriceChanges(res.data));
-    }
+    const fetchDate = hoverData?.date || null;
+    axios.get("http://127.0.0.1:8000/api/holding-price-change", {
+        params: { date: fetchDate },
+    })
+    .then((res) => {setPriceChanges(res.data);
+    })
+    .catch((err) => {
+        console.error("Error updateing price changes:", err);
+    });
   }, [hoverData?.date]);
 
   // Data-tabe max weight
