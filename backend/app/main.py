@@ -5,6 +5,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 
+
 app = FastAPI()
 
 app.add_middleware(
@@ -39,16 +40,17 @@ def get_processed_data():
     weights_df = pd.read_csv(weights_path)
     prices_df = pd.read_csv(prices_path)
 
-    prices_df['DATE'] = pd.to_datetime(prices_df['DATE'])
+    # prices_df['DATE'] = pd.to_datetime(prices_df['DATE'])
+    prices_df = prices_df.assign(DATE=pd.to_datetime(prices_df['DATE']))
     prices_df = prices_df.sort_values('DATE')
 
     weight_map = dict(zip(weights_df['name'], weights_df['weight']))
     relevant_tickers = weights_df['name'].tolist()
 
-    prices_df['ETF_VALUE'] = 0
+    prices_df['ETF_VALUE'] = 0.0
     for ticker in relevant_tickers:
         if ticker in prices_df.columns:
-            prices_df['ETF_VALUE'] += prices_df[ticker] * weight_map[ticker]
+            prices_df.loc[:, 'ETF_VALUE'] = prices_df['ETF_VALUE'] + (prices_df[ticker] * weight_map[ticker])
 
     return prices_df.round(3), weights_df.round(3)
 
@@ -60,7 +62,9 @@ def calculate_performance_dict(prices_df):
         list of dictionary objects using date, value as k-v pairs
     """
     chart_data = prices_df[['DATE', 'ETF_VALUE']].copy()
-    chart_data['date'] = chart_data['DATE'].dt.strftime('%Y-%m-%d')
+    chart_data = chart_data.assign(
+        date=chart_data['DATE'].dt.strftime('%Y-%m-%d')
+        )
     chart_data = chart_data.rename(columns={'ETF_VALUE': 'value'}).round(3)
     return chart_data[['date', 'value']].to_dict(orient='records')
 
@@ -179,7 +183,7 @@ def get_holding_price_change(date: str = None):
         return []
 
 @app.get("/api/top-holdings")
-def get_top_holdings(n: int=5):
+def get_top_holdings(n: int=5, date: str = None):
     """
     Endpoint to only return the top-5 holdings by largest weight*price.
 
@@ -191,15 +195,28 @@ def get_top_holdings(n: int=5):
         ]
     """
     prices, weights = get_processed_data()
-    if prices is None or weights is None or prices.empty or weights.empty: return []
+    if prices is None or weights is None or prices.empty or weights.empty: 
+        return []
     
+    prices = prices.copy()
     try:
-        latest_prices_row = prices.iloc[-1]
+        # Converting to panda readable format
+        prices = prices.assign(DATE=pd.to_datetime(prices['DATE']))
+        # prices['DATE'] = pd.to_datetime(prices['DATE'])
+        # Confirming date column index in data frame
+        prices.index = prices['DATE'].dt.strftime('%Y-%m-%d')
+
+        if date and date in prices.index:
+            date_index = prices.index.get_loc(date)
+            current_row_idx = date_index
+        else:
+            current_row_idx = len(prices) - 1
+
+        target_prices_row = prices.iloc[current_row_idx]
         data = weights.to_dict(orient='records')
-        
         for item in data:
             ticker = item['name']
-            price = latest_prices_row.get(ticker, 0)
+            price = target_prices_row.get(ticker, 0)
             item['holding_value'] = round(item['weight'] * price, 3)
         
         sorted_data = sorted(data, key=lambda x: x.get('holding_value', 0), reverse=True)
@@ -207,14 +224,18 @@ def get_top_holdings(n: int=5):
 
     except Exception as e:
         #TODO logging instead of print, need to add a logger with various log levels
+        import traceback
         print(f"Error calculating top holdings: {e}")
+        traceback.print_exc() 
         return []
     
 @app.get("/api/full-price-history")
 def get_full_history():
     prices_df, _ = get_processed_data()
     if prices_df is None: return []
-    prices_df['date'] = prices_df['DATE'].dt.strftime('%Y-%m-%d')
+    prices_df = prices_df.assign(
+        date=prices_df['DATE'].dt.strftime('%Y-%m-%d')
+    )
     return prices_df.drop(columns=['DATE']).to_dict(orient='records')
 
 if __name__ == "__main__":

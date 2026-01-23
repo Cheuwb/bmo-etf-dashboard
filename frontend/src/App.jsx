@@ -74,16 +74,20 @@ function App() {
   const activePrices = getActivePrices();
 
   useEffect(() => {
+    if (compData.length === 0) return;
     const fetchDate = hoverData?.date || null;
-    axios.get("http://127.0.0.1:8000/api/holding-price-change", {
-        params: { date: fetchDate },
-    })
-    .then((res) => {setPriceChanges(res.data);
+    Promise.all([
+    axios.get("http://127.0.0.1:8000/api/holding-price-change", {params: { date: fetchDate }}),
+    axios.get("http://127.0.0.1:8000/api/top-holdings", {params: {n: topN, date: fetchDate }})
+    ])
+    .then(([priceChangesRes, topHoldingsRes]) => {
+        setPriceChanges(priceChangesRes.data);
+        setTopHoldings(topHoldingsRes.data);
     })
     .catch((err) => {
         console.error("Error updateing price changes:", err);
     });
-  }, [hoverData?.date]);
+  }, [hoverData?.date, topN, compData.length]);
 
   // Data-tabe max weight
   const maxWeight =
