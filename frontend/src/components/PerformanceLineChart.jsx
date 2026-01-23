@@ -95,14 +95,14 @@ const PerformanceLineChart = ({ perfData, timeRange, setTimeRange, onMouseMove, 
               <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
               <XAxis 
                 dataKey="date" 
-                stroke="#444" 
+                stroke="#FFFFFF" 
                 fontSize={10} 
                 tickLine={false} 
                 axisLine={false} 
                 minTickGap={40} 
               />
               <YAxis 
-                stroke="#444" 
+                stroke="#FFFFFF" 
                 fontSize={10} 
                 tickLine={false} 
                 axisLine={false} 

@@ -35,14 +35,14 @@ const TopHoldingsChart = ({ data }) => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
                 <XAxis 
                   dataKey="name" 
-                  stroke="#888" 
+                  stroke="#FFFFFF" 
                   fontSize={12} 
                   tickLine={false} 
                   axisLine={false} 
                 />
                 <YAxis 
-                  stroke="#444" 
-                  fontSize={10} 
+                  stroke="#FFFFFF" 
+                  fontSize={13} 
                   tickLine={false} 
                   axisLine={false} 
                   tickFormatter={(val) => `$${val}`} 
@@ -65,14 +65,13 @@ const TopHoldingsChart = ({ data }) => {
                     <Cell 
                       key={`cell-${index}`} 
                       fill={'#3b82f6'} 
-                    //   fillOpacity={1 - index * 0.15} 
                     />
                   ))}
                   <LabelList 
                     dataKey="holding_value" 
                     position="top" 
                     formatter={(val) => `$${val.toFixed(2)}`} 
-                    style={{ fill: '#888', fontSize: '11px' }} 
+                    style={{ fill: '#FFFFFF', fontSize: '13px' }} 
                   />
                 </Bar>
               </BarChart>
