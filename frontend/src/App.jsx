@@ -21,22 +21,23 @@ function App() {
   const [hoverData, setHoverData] = useState(null);
   // dynamic N holdings bar chart
   const [topN, setTopN] = useState(5); // Default project requirement
+
   // Feature to change static top 5 holdings to N holdings based on slider
-  const fetchTopHoldings = async (n) => {
-    try {
-      const res = await axios.get("http://127.0.0.1:8000/api/top-holdings", {
-        params: { n: n },
-      });
-      setTopHoldings(res.data);
-    } catch (error) {
-      console.error("Error fetching top holdings:", error);
-    }
-  };
   // Top Holdings is now handled with useEffect guarded by the loading of composition data from axios -> backend
   // Remove the end-point call here beacuse of race condition against useEffect;
   // Using a safety guard compData > 0 to control population of topHoldins bar chart.
   // Slider to trigger re-render on react, fetching new data via fetchTopHoldings end point method
   useEffect(() => {
+    const fetchTopHoldings = async (n) => {
+      try {
+        const res = await axios.get("http://127.0.0.1:8000/api/top-holdings", {
+          params: { n: n },
+        });
+        setTopHoldings(res.data);
+      } catch (error) {
+        console.error("Error fetching top holdings:", error);
+      }
+    };
     if (compData.length > 0) {
       fetchTopHoldings(topN);
     }
@@ -66,7 +67,6 @@ function App() {
 
   const getActivePrices = () => {
     if (!hoverData || fullPriceHistory.length === 0) return null;
-
     const found = fullPriceHistory.find((row) => row.date === hoverData.date);
     return found;
   };
