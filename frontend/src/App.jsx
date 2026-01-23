@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
 import CompositionTable from "./components/CompositionTable";
 import TopHoldingsChart from "./components/TopHoldingsChart";
@@ -16,32 +16,40 @@ function App() {
     direction: "desc",
   });
   const [priceChanges, setPriceChanges] = useState([]);
-  const [topHoldings, setTopHoldings] = useState([]);
   const [fullPriceHistory, setFullPriceHistory] = useState([]);
   const [hoverData, setHoverData] = useState(null);
   // dynamic N holdings bar chart
   const [topN, setTopN] = useState(5); // Default project requirement
+
+
+  const getActivePrices = () => {
+    if (!hoverData || fullPriceHistory.length === 0) return null;
+    const found = fullPriceHistory.find((row) => row.date === hoverData.date);
+    return found;
+  };
+
+  const activePrices = getActivePrices();
 
   // Feature to change static top 5 holdings to N holdings based on slider
   // Top Holdings is now handled with useEffect guarded by the loading of composition data from axios -> backend
   // Remove the end-point call here beacuse of race condition against useEffect;
   // Using a safety guard compData > 0 to control population of topHoldins bar chart.
   // Slider to trigger re-render on react, fetching new data via fetchTopHoldings end point method
-  useEffect(() => {
-    const fetchTopHoldings = async (n) => {
-      try {
-        const res = await axios.get("http://127.0.0.1:8000/api/top-holdings", {
-          params: { n: n },
-        });
-        setTopHoldings(res.data);
-      } catch (error) {
-        console.error("Error fetching top holdings:", error);
-      }
-    };
-    if (compData.length > 0) {
-      fetchTopHoldings(topN);
-    }
-  }, [topN, compData.length]);
+  // This replaces the old 'topHoldings' state and the useEffect
+  const topHoldings = useMemo(() => {
+    if (compData.length === 0) return [];
+    const pricesToUse = activePrices || fullPriceHistory[fullPriceHistory.length - 1];
+
+    if (!pricesToUse) return [];
+    const mappedData = compData.map((item) => ({
+      ...item,
+      holding_value: item.weight * (pricesToUse[item.name] || 0),
+    }));
+
+    return mappedData
+      .sort((a, b) => b.holding_value - a.holding_value)
+      .slice(0, topN);
+  }, [compData, activePrices, fullPriceHistory, topN]);
 
   // sorting logic for data table (asecnding and descending)
   const requestSort = (key) => {
@@ -65,29 +73,21 @@ function App() {
     return sortableData;
   };
 
-  const getActivePrices = () => {
-    if (!hoverData || fullPriceHistory.length === 0) return null;
-    const found = fullPriceHistory.find((row) => row.date === hoverData.date);
-    return found;
-  };
-
-  const activePrices = getActivePrices();
-
   useEffect(() => {
     if (compData.length === 0) return;
     const fetchDate = hoverData?.date || null;
     Promise.all([
-    axios.get("http://127.0.0.1:8000/api/holding-price-change", {params: { date: fetchDate }}),
-    axios.get("http://127.0.0.1:8000/api/top-holdings", {params: {n: topN, date: fetchDate }})
+    axios.get("http://127.0.0.1:8000/api/holding-price-change", {params: { date: fetchDate }})
     ])
-    .then(([priceChangesRes, topHoldingsRes]) => {
+    .then(([priceChangesRes]) => {
         setPriceChanges(priceChangesRes.data);
-        setTopHoldings(topHoldingsRes.data);
     })
     .catch((err) => {
         console.error("Error updateing price changes:", err);
     });
-  }, [hoverData?.date, topN, compData.length]);
+  }, [hoverData?.date, compData.length]);
+
+  
 
   // Data-tabe max weight
   const maxWeight =
@@ -107,7 +107,7 @@ function App() {
         axios.get("http://127.0.0.1:8000/api/composition"),
         axios.get("http://127.0.0.1:8000/api/performance"),
         axios.get("http://127.0.0.1:8000/api/holding-price-change"),
-        axios.get("http://127.0.0.1:8000/api/full-price-history"),
+        axios.get("http://127.0.0.1:8000/api/full-price-history")
       ]);
       setCompData(compRes.data);
       setPerfData(perfRes.data);
