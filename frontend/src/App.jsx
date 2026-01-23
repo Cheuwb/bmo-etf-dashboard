@@ -15,7 +15,6 @@ function App() {
     key: "weight",
     direction: "desc",
   });
-  const [priceChanges, setPriceChanges] = useState([]);
   const [fullPriceHistory, setFullPriceHistory] = useState([]);
   const [hoverData, setHoverData] = useState(null);
   // dynamic N holdings bar chart
@@ -73,21 +72,38 @@ function App() {
     return sortableData;
   };
 
-  useEffect(() => {
-    if (compData.length === 0) return;
-    const fetchDate = hoverData?.date || null;
-    Promise.all([
-    axios.get("http://127.0.0.1:8000/api/holding-price-change", {params: { date: fetchDate }})
-    ])
-    .then(([priceChangesRes]) => {
-        setPriceChanges(priceChangesRes.data);
-    })
-    .catch((err) => {
-        console.error("Error updateing price changes:", err);
-    });
-  }, [hoverData?.date, compData.length]);
+  const priceChanges = useMemo(() => {
+    if (!fullPriceHistory || fullPriceHistory.length === 0 || compData.length === 0) {
+      return [];
+    }
+    let currentIdx = -1;
+    const hoverDateStr = hoverData?.date;
 
-  
+    if (!hoverDateStr) {
+      currentIdx = fullPriceHistory.length - 1;
+    } else {
+      currentIdx = fullPriceHistory.findIndex((row) => row.date === hoverDateStr);
+    }
+
+    const prevIdx = currentIdx <= 0 ? currentIdx : currentIdx - 1;
+
+    const latestRow = fullPriceHistory[currentIdx];
+    const prevRow = fullPriceHistory[prevIdx];
+    return compData.map((item) => {
+      const ticker = item.name;
+      const current = latestRow[ticker] || 0;
+      const previous = prevRow[ticker] || 0;
+
+      return {
+        ...item,
+        increased: current >= previous,
+        change_amount: Number((current - previous).toFixed(3)),
+        historical_price: Number(current.toFixed(3)),
+      };
+    });
+  }, [hoverData?.date, fullPriceHistory, compData]);
+
+
 
   // Data-tabe max weight
   const maxWeight =
@@ -103,15 +119,13 @@ function App() {
     try {
       setMessage("Processing...");
       await axios.post("http://127.0.0.1:8000/api/upload-process", formData);
-      const [compRes, perfRes, changeRes, priceHistRes] = await Promise.all([
+      const [compRes, perfRes, priceHistRes] = await Promise.all([
         axios.get("http://127.0.0.1:8000/api/composition"),
         axios.get("http://127.0.0.1:8000/api/performance"),
-        axios.get("http://127.0.0.1:8000/api/holding-price-change"),
         axios.get("http://127.0.0.1:8000/api/full-price-history")
       ]);
       setCompData(compRes.data);
       setPerfData(perfRes.data);
-      setPriceChanges(changeRes.data);
       setFullPriceHistory(priceHistRes.data);
       setMessage("Update Complete!");
     } catch (error) {

@@ -139,6 +139,7 @@ def get_composition():
         
     return composition
 
+#Deprecated, moved to front-end logic
 @app.get("/api/holding-price-change")
 def get_holding_price_change(date: str = None):
     """
@@ -183,6 +184,7 @@ def get_holding_price_change(date: str = None):
         print(f"Error in price change: {e}")
         return []
 
+#Deprecated, moved to front-end logic
 @app.get("/api/top-holdings")
 def get_top_holdings(n: int=5, date: str = None):
     """
