@@ -5,13 +5,15 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 
+
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173",
+                   "http://127.0.0.1:5173"],
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["GET", "POST"],
 )
 
 UPLOAD_DIR = "data"
@@ -39,16 +41,17 @@ def get_processed_data():
     weights_df = pd.read_csv(weights_path)
     prices_df = pd.read_csv(prices_path)
 
-    prices_df['DATE'] = pd.to_datetime(prices_df['DATE'])
+    # prices_df['DATE'] = pd.to_datetime(prices_df['DATE'])
+    prices_df = prices_df.assign(DATE=pd.to_datetime(prices_df['DATE']))
     prices_df = prices_df.sort_values('DATE')
 
     weight_map = dict(zip(weights_df['name'], weights_df['weight']))
     relevant_tickers = weights_df['name'].tolist()
 
-    prices_df['ETF_VALUE'] = 0
+    prices_df['ETF_VALUE'] = 0.0
     for ticker in relevant_tickers:
         if ticker in prices_df.columns:
-            prices_df['ETF_VALUE'] += prices_df[ticker] * weight_map[ticker]
+            prices_df.loc[:, 'ETF_VALUE'] = prices_df['ETF_VALUE'] + (prices_df[ticker] * weight_map[ticker])
 
     return prices_df.round(3), weights_df.round(3)
 
@@ -60,7 +63,9 @@ def calculate_performance_dict(prices_df):
         list of dictionary objects using date, value as k-v pairs
     """
     chart_data = prices_df[['DATE', 'ETF_VALUE']].copy()
-    chart_data['date'] = chart_data['DATE'].dt.strftime('%Y-%m-%d')
+    chart_data = chart_data.assign(
+        date=chart_data['DATE'].dt.strftime('%Y-%m-%d')
+        )
     chart_data = chart_data.rename(columns={'ETF_VALUE': 'value'}).round(3)
     return chart_data[['date', 'value']].to_dict(orient='records')
 
@@ -134,8 +139,9 @@ def get_composition():
         
     return composition
 
+#Deprecated, moved to front-end logic
 @app.get("/api/holding-price-change")
-def get_holding_price_change():
+def get_holding_price_change(date: str = None):
     """
     Calculates the price differece between the current latest price and the previous date's price
 
@@ -147,29 +153,40 @@ def get_holding_price_change():
     prices, weights = get_processed_data()
     if prices is None or weights is None: return []
 
-    # Get the two most recent rows of prices
-    latest_row = prices.iloc[-1]
-    prev_row = prices.iloc[-2]
-
-    # Convert weights to a list of dicts (just like top-holdings)
-    data = weights.to_dict(orient='records')
-
-    for item in data:
-        ticker = item['name']
+    prices.index = prices['DATE'].dt.strftime('%Y-%m-%d')
+    try:
+        if date is None or date not in prices.index:
+            current_idx = len(prices) - 1
+        else:
+            current_idx = prices.index.get_loc(date)
         
-        # Get prices for this specific ticker from the price rows
-        current = latest_row.get(ticker, 0)
-        previous = prev_row.get(ticker, 0)
-        
-        # Add your boolean logic directly to the dictionary
-        item['increased'] = bool(current >= previous)
-        item['change_amount'] = round(current - previous, 3)
+        # Corner case: first entry, compare to itself (0)
+        if current_idx <= 0:
+            prev_idx = current_idx
+        else:
+            prev_idx = current_idx - 1
 
-    # Return the whole list (FastAPI turns this List of Dicts into JSON)
-    return data
+        latest_row = prices.iloc[current_idx]
+        prev_row = prices.iloc[prev_idx]
 
+        data = weights.to_dict(orient='records')
+        for item in data:
+            ticker = item['name']
+            current = latest_row.get(ticker, 0)
+            previous = prev_row.get(ticker, 0)
+            
+            item['increased'] = bool(current >= previous)
+            item['change_amount'] = round(current - previous, 3)
+            item['historical_price'] = round(current, 3)
+
+        return data
+    except Exception as e:
+        print(f"Error in price change: {e}")
+        return []
+
+#Deprecated, moved to front-end logic
 @app.get("/api/top-holdings")
-def get_top_holdings():
+def get_top_holdings(n: int=5, date: str = None):
     """
     Endpoint to only return the top-5 holdings by largest weight*price.
 
@@ -181,18 +198,48 @@ def get_top_holdings():
         ]
     """
     prices, weights = get_processed_data()
-    if prices is None: return []
+    if prices is None or weights is None or prices.empty or weights.empty: 
+        return []
     
-    latest_prices_row = prices.iloc[-1]
-    data = weights.to_dict(orient='records')
+    prices = prices.copy()
+    try:
+        # Converting to panda readable format
+        prices = prices.assign(DATE=pd.to_datetime(prices['DATE']))
+        # prices['DATE'] = pd.to_datetime(prices['DATE'])
+        # Confirming date column index in data frame
+        prices.index = prices['DATE'].dt.strftime('%Y-%m-%d')
+
+        if date and date in prices.index:
+            date_index = prices.index.get_loc(date)
+            current_row_idx = date_index
+        else:
+            current_row_idx = len(prices) - 1
+
+        target_prices_row = prices.iloc[current_row_idx]
+        data = weights.to_dict(orient='records')
+        for item in data:
+            ticker = item['name']
+            price = target_prices_row.get(ticker, 0)
+            item['holding_value'] = round(item['weight'] * price, 3)
+        
+        sorted_data = sorted(data, key=lambda x: x.get('holding_value', 0), reverse=True)
+        return sorted_data[:n]
+
+    except Exception as e:
+        #TODO logging instead of print, need to add a logger with various log levels
+        import traceback
+        print(f"Error calculating top holdings: {e}")
+        traceback.print_exc() 
+        return []
     
-    for item in data:
-        ticker = item['name']
-        price = latest_prices_row.get(ticker, 0)
-        item['holding_value'] = round(item['weight'] * price, 3)
-    
-    sorted_data = sorted(data, key=lambda x: x.get('holding_value', 0), reverse=True)
-    return sorted_data[:5]
+@app.get("/api/full-price-history")
+def get_full_history():
+    prices_df, _ = get_processed_data()
+    if prices_df is None: return []
+    prices_df = prices_df.assign(
+        date=prices_df['DATE'].dt.strftime('%Y-%m-%d')
+    )
+    return prices_df.drop(columns=['DATE']).to_dict(orient='records')
 
 if __name__ == "__main__":
     import uvicorn

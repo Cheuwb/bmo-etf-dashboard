@@ -8,8 +8,9 @@
 <h3>1. Clone the repository</h3>
 
 ```bash
-git clone https://github.com/yourusername/project-name.git
-cd project-name
+# Could also rename project after cloning
+git clone https://github.com/Cheuwb/bmo-etf-dashboard.git
+cd bmo-etf-dashboard
 ```
 
 <h3>2. Backend Setup (Python/FastAPI)</h3>
